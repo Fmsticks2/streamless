@@ -1,0 +1,23 @@
+{
+  "targets": {
+    "debug": {
+      "outFile": "build/debug.wasm",
+      "debug": true
+    },
+    "release": {
+      "outFile": "build/release.wasm",
+      "optimizeLevel": 3,
+      "shrinkLevel": 1,
+      "converge": false,
+      "noAssert": true
+    }
+  },
+  "options": {
+    "exportTable": true,
+    "runtime": "stub"
+  },
+  "paths": {
+    "~lib/@massalabs/as-types/*": ["node_modules/@massalabs/as-types/assembly/*"],
+    "~lib/as-bignum/*": ["node_modules/as-bignum/assembly/*"]
+  }
+}

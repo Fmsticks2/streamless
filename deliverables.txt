@@ -1,0 +1,431 @@
+{
+  "metadata": {
+    "document_title": "Streamless Deliverables",
+    "version": "1.0.0",
+    "last_updated": "2025-10-20",
+    "status": "ready"
+  },
+  "project": {
+    "name": "Streamless",
+    "description": "An autonomous on-chain subscription protocol built on Massa using Autonomous Smart Contracts (ASC) and DeWeb for decentralized frontend hosting.",
+    "goal": "Develop and deploy a fully autonomous DeFi subscription protocol that enables creators to receive recurring payments on-chain without off-chain services, using Massa's ASC and DeWeb.",
+    "technologies": {
+      "smart_contract_language": "Rust or AssemblyScript (compatible with Massa)",
+      "frontend_framework": "React + Vite",
+      "styling": "TailwindCSS",
+      "onchain_sdk": "Massa Web3 SDK",
+      "hosting": "Massa DeWeb"
+    }
+  },
+  "scope": {
+    "in_scope": [
+      "Autonomous on-chain subscriptions with ASC deferred calls",
+      "DeWeb-hosted React frontend integrating Massa Web3 SDK",
+      "MASS and MRC-20 token payments",
+      "Subscription lifecycle: create, update, subscribe, cancel, pay",
+      "On-chain events and payment history",
+      "Deployment to Massa testnet and DeWeb"
+    ],
+    "out_of_scope": [
+      "Off-chain schedulers/servers",
+      "Fiat on-ramps and custody",
+      "Admin backoffice beyond creator plan management",
+      "KYC/Compliance workflows",
+      "Cross-chain bridges"
+    ],
+    "assumptions": [
+      "Users have sufficient MASS for gas and payments",
+      "MRC-20 tokens used conform to expected transfer/approval interfaces",
+      "Massa testnet and DeWeb are available during development"
+    ],
+    "constraints": [
+      "No reliance on centralized cron or external triggers",
+      "Frontend must be fully static and deployable to DeWeb",
+      "Smart contract upgrades are limited; prefer immutable deployment"
+    ]
+  },
+  "system_architecture": {
+    "components": [
+      "Autonomous Smart Contract (handles subscription logic and deferred calls)",
+      "DeWeb Frontend (React app interacting with Massa SDK)",
+      "Massa Network (execution layer for ASC)"
+    ],
+    "data_flow": "User interacts with DeWeb frontend -> Massa Smart Contract -> ASC executes payments autonomously -> State updates -> DeWeb reflects updated status.",
+    "sequence_overview": "Subscribe schedules a deferred_call for execute_payment at next cycle; execute_payment validates approval/balance, transfers funds, emits events, and reschedules next cycle when active."
+  },
+  "features": {
+    "core": [
+      "Create and manage subscription plans (amount, frequency, active state)",
+      "Subscribe to plans using MASS or MRC-20 tokens",
+      "Autonomous recurring payments via deferred calls",
+      "Cancellation of subscriptions anytime by users",
+      "Events and logs for each transaction",
+      "On-chain record of all payments and plans"
+    ],
+    "frontend": [
+      "Wallet connection via Massa Web SDK",
+      "View and create subscription plans",
+      "Manage subscriptions and payment history",
+      "Real-time updates from on-chain data",
+      "Fully decentralized hosting on DeWeb"
+    ]
+  },
+  "technical_specifications": {
+    "smart_contract": {
+      "data_structures": {
+        "Plan": {
+          "id": "string",
+          "creator": "Address",
+          "amount": "u64",
+          "frequency_days": "u32",
+          "active": "bool"
+        },
+        "Subscription": {
+          "subscriber": "Address",
+          "plan_id": "string",
+          "next_payment_time": "u64",
+          "active": "bool",
+          "remaining_cycles": "Option<u32>"
+        }
+      },
+      "functions": [
+        "create_plan(plan_id, amount, frequency_days)",
+        "update_plan(plan_id, new_amount, new_freq)",
+        "subscribe(plan_id, cycles)",
+        "cancel_subscription(plan_id)",
+        "execute_payment(subscriber, plan_id)",
+        "get_plan(plan_id)",
+        "get_user_subscriptions(user)"
+      ],
+      "autonomous_execution": "Each subscription triggers a deferred_call(contract_address, 'execute_payment', args=[subscriber, plan_id], delay_seconds=frequency_days * 86400)",
+      "scheduling_policy": {
+        "calculation": "delay_seconds = frequency_days * 86400",
+        "drift_tolerance_seconds": 10,
+        "reschedule_on_success": true,
+        "skip_if_inactive": true
+      },
+      "token_handling": "Supports MASS or MRC-20 tokens. Users approve contract spending. Transfer occurs atomically via transfer_from().",
+      "events": [
+        "PlanCreated(plan_id, creator, amount, frequency_days)",
+        "Subscribed(user, plan_id)",
+        "PaymentExecuted(user, plan_id, amount, timestamp)",
+        "SubscriptionCancelled(user, plan_id)"
+      ],
+      "security": [
+        "Validate all input parameters",
+        "Check balances and approvals before transfers",
+        "Prevent reentrancy",
+        "Idempotent payment execution per cycle",
+        "Allow safe subscription cancellation"
+      ],
+      "failure_handling": [
+        "If approval/balance insufficient: emit event and reschedule next cycle",
+        "If transfer fails: do not update next_payment_time; emit error event",
+        "Guard against duplicate deferred calls per subscription"
+      ]
+    },
+    "frontend": {
+      "pages": [
+        "Home (overview, wallet connect)",
+        "Plans (browse available subscription plans)",
+        "Create Plan (creator setup form)",
+        "My Subscriptions (user’s active plans)",
+        "Payment History (transaction log)"
+      ],
+      "core_ui": {
+        "connect_wallet_button": "Massa wallet or Web3 SDK integration",
+        "create_plan_form": "Inputs: amount, frequency (days)",
+        "subscribe_button": "Triggers smart contract call to subscribe",
+        "cancel_button": "Cancels active subscription",
+        "plan_card_component": "Displays plan details and next payment date"
+      },
+      "state_management": "Zustand or Context API",
+      "error_states": [
+        "Wallet not connected",
+        "Insufficient balance/approval",
+        "Network errors",
+        "Contract call failures"
+      ],
+      "deployment": {
+        "build_command": "npm run build",
+        "deweb_deploy_command": "massa-web deploy ./dist"
+      }
+    }
+  },
+  "smart_contract_interface": {
+    "methods": [
+      {
+        "name": "create_plan",
+        "params": [
+          { "name": "plan_id", "type": "string" },
+          { "name": "amount", "type": "u64" },
+          { "name": "frequency_days", "type": "u32" }
+        ],
+        "returns": "bool",
+        "emits": ["PlanCreated"],
+        "access": "public",
+        "notes": "Only creator can update/delete their plan"
+      },
+      {
+        "name": "update_plan",
+        "params": [
+          { "name": "plan_id", "type": "string" },
+          { "name": "new_amount", "type": "u64" },
+          { "name": "new_freq", "type": "u32" }
+        ],
+        "returns": "bool",
+        "emits": [],
+        "access": "creator_only"
+      },
+      {
+        "name": "subscribe",
+        "params": [
+          { "name": "plan_id", "type": "string" },
+          { "name": "cycles", "type": "Option<u32>" }
+        ],
+        "returns": "bool",
+        "emits": ["Subscribed"],
+        "access": "public",
+        "notes": "Schedules first payment using deferred_call"
+      },
+      {
+        "name": "cancel_subscription",
+        "params": [
+          { "name": "plan_id", "type": "string" }
+        ],
+        "returns": "bool",
+        "emits": ["SubscriptionCancelled"],
+        "access": "subscriber_only"
+      },
+      {
+        "name": "execute_payment",
+        "params": [
+          { "name": "subscriber", "type": "Address" },
+          { "name": "plan_id", "type": "string" }
+        ],
+        "returns": "bool",
+        "emits": ["PaymentExecuted"],
+        "access": "autonomous_only",
+        "notes": "Called by ASC; validates approval/balance and reschedules next cycle"
+      }
+    ],
+    "events": {
+      "PlanCreated": ["plan_id", "creator", "amount", "frequency_days"],
+      "Subscribed": ["user", "plan_id"],
+      "PaymentExecuted": ["user", "plan_id", "amount", "timestamp"],
+      "SubscriptionCancelled": ["user", "plan_id"]
+    }
+  },
+  "token_support": {
+    "tokens": ["MASS", "MRC-20"],
+    "approval_model": "approve(contract, amount) then transfer_from(subscriber -> creator)",
+    "decimals_handling": "Store amounts in smallest units; frontend displays humanized",
+    "overflow_checks": true
+  },
+  "testing_plan": {
+    "unit_tests": [
+      "Plan creation/update validation",
+      "Subscription start/cancel toggles",
+      "Execute payment: happy path",
+      "Execute payment: insufficient approval/balance"
+    ],
+    "integration_tests": [
+      "Deferred call scheduling and rescheduling",
+      "Multi-user subscriptions with concurrent cycles",
+      "Events emitted and consumed by frontend"
+    ],
+    "e2e_tests": [
+      "Wallet connect -> subscribe -> autonomous payment -> history update",
+      "Cancel subscription and ensure no further payments"
+    ],
+    "test_env": {
+      "network": "Massa localnet/testnet",
+      "seed_accounts": 3,
+      "fixtures": ["sample plans", "mock tokens"]
+    }
+  },
+  "milestones": [
+    {
+      "name": "Setup",
+      "duration_days": 2,
+      "definition_of_done": [
+        "Local dev environment ready",
+        "Repo initialized with contracts and frontend"
+      ]
+    },
+    {
+      "name": "Smart Contract",
+      "duration_days": 5,
+      "definition_of_done": [
+        "Core structs and methods implemented",
+        "Deferred calls tested on localnet",
+        "Contract compiles without warnings"
+      ]
+    },
+    {
+      "name": "Frontend",
+      "duration_days": 5,
+      "definition_of_done": [
+        "Wallet connect and plan management working",
+        "Subscriptions view and payment history functional",
+        "Build outputs optimized for DeWeb"
+      ]
+    },
+    {
+      "name": "Testing",
+      "duration_days": 3,
+      "definition_of_done": [
+        "Unit/integration tests passing",
+        "E2E flows validated",
+        "Error states handled gracefully"
+      ]
+    },
+    {
+      "name": "Delivery",
+      "duration_days": 2,
+      "definition_of_done": [
+        "README and docs finalized",
+        "Demo video recorded",
+        "DeWeb URL and testnet addresses published"
+      ]
+    }
+  ],
+  "environment_setup": {
+    "commands": [
+      "git clone <repo-url>",
+      "cd contracts",
+      "cargo build --release",
+      "cd ../frontend",
+      "npm install",
+      "npm run dev"
+    ],
+    "tools_required": [
+      "Massa SDK",
+      "Rust toolchain",
+      "Node.js >= 18",
+      "npm or yarn",
+      "DeWeb CLI"
+    ],
+    "versions": {
+      "rust": "stable",
+      "node": ">=18",
+      "massa_sdk": "latest"
+    }
+  },
+  "deployment_plan": {
+    "contracts": {
+      "build": "cargo build --release",
+      "deploy": "massa-cli contract deploy <wasm_path> --network testnet",
+      "record": ["contract_address", "deployer_address"],
+      "env": {
+        "network": "testnet"
+      }
+    },
+    "frontend": {
+      "build": "npm run build",
+      "deweb": "massa-web deploy ./dist",
+      "env": {
+        "CONTRACT_ADDRESS": "<address>",
+        "NETWORK": "testnet"
+      }
+    },
+    "rollback": {
+      "strategy": "Set plan active=false; communicate deprecation; redeploy new version",
+      "note": "On-chain state migration is out of scope"
+    }
+  },
+  "acceptance_criteria": {
+    "technical_excellence": "Smart contracts compile, deploy, and execute autonomously without external triggers.",
+    "user_experience": "Frontend loads within 2 seconds and allows seamless subscription creation/cancellation.",
+    "decentralization": "No reliance on off-chain services or hosting; all logic runs on Massa.",
+    "completeness": "Both frontend and backend integrated, tested, and deployed on DeWeb and Massa testnet.",
+    "metrics": {
+      "ui_first_contentful_paint_s": 2.0,
+      "payment_execution_drift_s": 5,
+      "error_rate_%": 1
+    }
+  },
+  "submission_package": {
+    "includes": [
+      "Smart Contract Source Code",
+      "Frontend Source Code",
+      "Deployment Scripts",
+      "Demo Video (3-5 min)",
+      "Technical Documentation (Markdown)",
+      "Optional Pitch Deck (up to 10 slides)"
+    ]
+  },
+  "file_structure": {
+    "root": [
+      "README.md",
+      "contracts/",
+      "frontend/",
+      "docs/",
+      "scripts/"
+    ],
+    "contracts": [
+      "StreamlessContract.rs",
+      "Cargo.toml",
+      "tests/"
+    ],
+    "frontend": [
+      "src/",
+      "src/pages/",
+      "src/components/",
+      "src/hooks/",
+      "src/styles/",
+      "vite.config.js",
+      "package.json"
+    ],
+    "docs": [
+      "Architecture.md",
+      "API_Reference.md",
+      "Deployment_Guide.md"
+    ]
+  },
+  "risks": [
+    {
+      "id": "R1",
+      "description": "Deferred call scheduling drift or failure",
+      "impact": "Medium",
+      "likelihood": "Medium",
+      "mitigation": "Add drift tolerance and rescheduling on next cycle"
+    },
+    {
+      "id": "R2",
+      "description": "Insufficient token approvals or balances",
+      "impact": "High",
+      "likelihood": "Medium",
+      "mitigation": "Pre-check approvals/balances; emit informative events; retry next cycle"
+    },
+    {
+      "id": "R3",
+      "description": "DeWeb deployment misconfiguration",
+      "impact": "Medium",
+      "likelihood": "Low",
+      "mitigation": "Document build/deploy steps; verify content hash and URL"
+    }
+  ],
+  "observability": {
+    "events": ["PlanCreated", "Subscribed", "PaymentExecuted", "SubscriptionCancelled"],
+    "metrics": [
+      "payments_executed_total",
+      "subscriptions_active_total",
+      "payment_failures_total"
+    ],
+    "frontend_logging": "Console and UI notifications; no centralized log sinks"
+  },
+  "future_extensions": [
+    "Multi-token support (stablecoins, LP tokens)",
+    "NFT-based access passes for subscribers",
+    "Dynamic pricing models",
+    "DAO-based revenue sharing",
+    "Analytics dashboard hosted on DeWeb"
+  ],
+  "glossary": [
+    { "term": "ASC", "definition": "Autonomous Smart Contract" },
+    { "term": "DeWeb", "definition": "Decentralized static content hosting on Massa" },
+    { "term": "MRC-20", "definition": "Massa token standard similar to ERC-20" },
+    { "term": "MASS", "definition": "Native token for Massa" }
+  ]
+}
