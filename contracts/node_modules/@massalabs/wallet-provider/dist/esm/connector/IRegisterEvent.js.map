@@ -1,1 +1,0 @@
-{"version":3,"file":"IRegisterEvent.js","sourceRoot":"","sources":["../../../src/connector/IRegisterEvent.ts"],"names":[],"mappings":"","sourcesContent":["/**\n * This interface represents the object that is used to register an event.\n */\nexport interface IRegisterEvent {\n  providerName: string;\n  eventTarget: string;\n}\n"]}
