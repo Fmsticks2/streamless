@@ -1,0 +1,1 @@
+{"version":3,"file":"IAccountDetails.js","sourceRoot":"","sources":["../../../src/account/IAccountDetails.ts"],"names":[],"mappings":"","sourcesContent":["/**\n * Interface for account details.\n */\nexport interface IAccountDetails {\n  /** Optional account name */\n  name?: string;\n  /** Account address */\n  address: string;\n}\n"]}

@@ -13,6 +13,7 @@ export default function Layout() {
             <Link to="/plans" className="hover:text-indigo-400">Plans</Link>
             <Link to="/create" className="hover:text-indigo-400">Create Plan</Link>
             <Link to="/subs" className="hover:text-indigo-400">My Subscriptions</Link>
+            <Link to="/wallet" className="hover:text-indigo-400">Wallet</Link>
             <Link to="/history" className="hover:text-indigo-400">History</Link>
           </nav>
           <button onClick={connect} disabled={loading} className="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50">

@@ -1,0 +1,1 @@
+{"version":3,"file":"ICallData.d.ts","sourceRoot":"","sources":["../../../src/bearbyWallet/ICallData.ts"],"names":[],"mappings":"AAAA;;;;;;;;;;;;;;;;GAgBG;AACH,MAAM,WAAW,SAAS;IACxB,GAAG,EAAE,MAAM,CAAC;IACZ,MAAM,EAAE,MAAM,CAAC;IACf,KAAK,EAAE,MAAM,CAAC;IACd,aAAa,EAAE,MAAM,CAAC;IACtB,YAAY,EAAE,MAAM,CAAC;IACrB,SAAS,EAAE,KAAK,CAAC,MAAM,CAAC,CAAC;CAC1B"}

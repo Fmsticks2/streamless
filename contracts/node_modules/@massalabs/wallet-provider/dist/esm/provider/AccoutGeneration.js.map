@@ -1,0 +1,1 @@
+{"version":3,"file":"AccoutGeneration.js","sourceRoot":"","sources":["../../../src/provider/AccoutGeneration.ts"],"names":[],"mappings":"","sourcesContent":["/**\n * This interface represents the request object sent to the content script\n * for generation a new random account.\n */\nexport interface IAccountGenerationRequest {\n  name: string;\n}\n"]}

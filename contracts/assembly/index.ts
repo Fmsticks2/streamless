@@ -9,6 +9,11 @@ import {
   generateEvent,
 } from '@massalabs/massa-as-sdk';
 import { Args } from '@massalabs/as-types';
+// add imports for scheduling and coins
+import { currentPeriod, currentThread } from '@massalabs/massa-as-sdk/assembly/std/context';
+import { Address } from '@massalabs/massa-as-sdk/assembly/std/address';
+import { sendMessage } from '@massalabs/massa-as-sdk/assembly/std/contract/calls';
+import { transferCoins, balance } from '@massalabs/massa-as-sdk/assembly/std/coins';
 
 // Storage key helpers
 function kPlanIds(): string { return 'plan:ids'; }
@@ -21,6 +26,14 @@ function kSubsIndex(addr: string): string { return `subs:${addr}:index`; }
 function kSubActive(addr: string, id: string): string { return `sub:${addr}:${id}:active`; }
 function kSubNext(addr: string, id: string): string { return `sub:${addr}:${id}:next`; }
 function kSubRemain(addr: string, id: string): string { return `sub:${addr}:${id}:remain`; }
+// deposit ledger per subscriber
+function kDeposit(addr: string): string { return `deposit:${addr}`; }
+
+// Scheduling and fees constants
+const ESTIMATED_SLOT_MS: u64 = 10000; // 10s
+const DRIFT_PERIODS: u64 = 10; // tolerance range
+const MAX_GAS: u64 = 5_000_000_000; // conservative gas limit
+const RAW_FEE: u64 = 100_000; // base fee for message priority
 
 // Utilities
 function now(): u64 { return Context.timestamp(); }
@@ -60,7 +73,7 @@ function setIds(key: string, ids: string[]): void {
 function pushUniqueId(key: string, id: string): void {
   const ids = getIds(key);
   for (let i = 0; i < ids.length; i++) {
-    if (ids[i] == id) return;
+    if (unchecked(ids[i]) == id) return;
   }
   ids.unshift(id);
   setIds(key, ids);
@@ -123,14 +136,34 @@ export function subscribe(argsBytes: StaticArray<u8>): StaticArray<u8> {
   Storage.set<string>(kSubActive(subscriber, planId), '1');
   const frequencyDays = parseU32Strict(Storage.get<string>(kPlanFreq(planId)));
   // Context.timestamp() returns milliseconds; convert days -> milliseconds
-  const firstPay = now() + <u64>frequencyDays * 86400000;
+  const firstPay = now() + <u64>frequencyDays * 86400 * 1000;
   Storage.set<string>(kSubNext(subscriber, planId), firstPay.toString());
   if (hasCycles) Storage.set<string>(kSubRemain(subscriber, planId), cycles.toString());
 
   pushUniqueId(kSubsIndex(subscriber), planId);
 
-  // NOTE: Scheduling deferred call is environment-specific; integrate using SDK once available.
-  // e.g., Context.defer(Context.address(), 'execute_payment', new Args().add(subscriber).add(planId).serialize(), firstPay - now());
+  // Schedule autonomous execution at the due time
+  const delayMs: u64 = firstPay > now() ? firstPay - now() : 0;
+  // convert delay to periods using an estimated slot duration
+  let startPeriod = currentPeriod() + (delayMs / ESTIMATED_SLOT_MS) + 1;
+  let endPeriod = startPeriod + DRIFT_PERIODS;
+  const thread = currentThread();
+  const params = new Args()
+    .add<string>(subscriber)
+    .add<string>(planId)
+    .serialize();
+  sendMessage(
+    Context.callee(),
+    'execute_payment',
+    startPeriod,
+    thread,
+    endPeriod,
+    thread,
+    MAX_GAS,
+    RAW_FEE,
+    0, // no coins sent
+    params,
+  );
 
   generateEvent(`Subscribed|${subscriber}|${planId}`);
   return new Args().add<bool>(true).serialize();
@@ -164,13 +197,24 @@ export function execute_payment(argsBytes: StaticArray<u8>): StaticArray<u8> {
   const nextTime: u64 = parseU64Strict(Storage.get<string>(kSubNext(subscriber, planId)));
   if (now() < nextTime) return new Args().add<bool>(false).serialize();
 
-  // Transfer logic placeholder: integrate MRC-20/MASS transfer via SDK
   const amount = parseU64Strict(Storage.get<string>(kPlanAmount(planId)));
   const creator = Storage.get<string>(kPlanCreator(planId));
-  // TODO: perform transfer_from(subscriber -> creator, amount)
 
-  // Update remaining cycles
-  if (Storage.has<string>(kSubRemain(subscriber, planId))) {
+  // MASS transfer using deposit ledger: subscriber pre-deposits funds to this contract
+  const depKey = kDeposit(subscriber);
+  const available: u64 = Storage.has<string>(depKey) ? parseU64Strict(Storage.get<string>(depKey)) : 0;
+  let success = false;
+  if (available >= amount && balance() >= amount) {
+    // debit internal ledger
+    const newBal = available - amount;
+    Storage.set<string>(depKey, newBal.toString());
+    // transfer from contract balance to creator
+    transferCoins(new Address(creator), amount);
+    success = true;
+  }
+
+  // Update remaining cycles only if transfer succeeded
+  if (success && Storage.has<string>(kSubRemain(subscriber, planId))) {
     let remain = parseU32Strict(Storage.get<string>(kSubRemain(subscriber, planId)));
     if (remain > 0) {
       remain -= 1;
@@ -185,9 +229,79 @@ export function execute_payment(argsBytes: StaticArray<u8>): StaticArray<u8> {
   const newNext = now() + <u64>frequencyDays * 86400000;
   Storage.set<string>(kSubNext(subscriber, planId), newNext.toString());
 
-  generateEvent(`PaymentExecuted|${subscriber}|${planId}|${amount.toString()}|${now().toString()}`);
+  if (stillActive) {
+    // schedule again for next due date
+    const delayMs: u64 = newNext > now() ? newNext - now() : 0;
+    let startPeriod = currentPeriod() + (delayMs / ESTIMATED_SLOT_MS) + 1;
+    let endPeriod = startPeriod + DRIFT_PERIODS;
+    const thread = currentThread();
+    const params = new Args().add<string>(subscriber).add<string>(planId).serialize();
+    sendMessage(
+      Context.callee(),
+      'execute_payment',
+      startPeriod,
+      thread,
+      endPeriod,
+      thread,
+      MAX_GAS,
+      RAW_FEE,
+      0,
+      params,
+    );
+  }
 
-  return new Args().add<bool>(stillActive).serialize();
+  generateEvent(`PaymentExecuted|${subscriber}|${planId}|${amount.toString()}|${now().toString()}|${success ? 'ok' : 'insufficient'}`);
+
+  return new Args().add<bool>(success && stillActive).serialize();
+}
+
+// List all plan IDs (CSV "|")
+export function list_plans(_args: StaticArray<u8>): StaticArray<u8> {
+  const csv = getIds(kPlanIds()).join('|');
+  return new Args().add<string>(csv).serialize();
+}
+
+// Return subscription details as JSON
+// get_subscription(subscriber: string, plan_id: string) -> string
+export function get_subscription(argsBytes: StaticArray<u8>): StaticArray<u8> {
+  const a = new Args(argsBytes);
+  const subscriber = a.nextString().expect('subscriber required');
+  const planId = a.nextString().expect('plan_id required');
+
+  const active = Storage.has<string>(kSubActive(subscriber, planId)) && toBool(Storage.get<string>(kSubActive(subscriber, planId)));
+  const next = Storage.has<string>(kSubNext(subscriber, planId)) ? Storage.get<string>(kSubNext(subscriber, planId)) : '0';
+  const remain = Storage.has<string>(kSubRemain(subscriber, planId)) ? Storage.get<string>(kSubRemain(subscriber, planId)) : '';
+  const remPart = remain.length ? `,"remaining_cycles":"${remain}"` : '';
+  const json = `{"subscriber":"${subscriber}","plan_id":"${planId}","next_payment_time":"${next}","active":${active}${remPart}}`;
+  return new Args().add<string>(json).serialize();
+}
+
+// Allow users to deposit/withdraw MASS into/from this contract for autonomous payments
+export function deposit(_args: StaticArray<u8>): StaticArray<u8> {
+  const coins = Context.transferredCoins();
+  assert(coins > 0, 'no coins transferred');
+  const who = Context.caller().toString();
+  const key = kDeposit(who);
+  const cur: u64 = Storage.has<string>(key) ? parseU64Strict(Storage.get<string>(key)) : 0;
+  const next: u64 = cur + coins;
+  Storage.set<string>(key, next.toString());
+  generateEvent(`Deposit|${who}|${coins.toString()}`);
+  return new Args().add<bool>(true).serialize();
+}
+
+export function withdraw(argsBytes: StaticArray<u8>): StaticArray<u8> {
+  const a = new Args(argsBytes);
+  const amount = a.nextU64().expect('amount required');
+  const who = Context.caller().toString();
+  const key = kDeposit(who);
+  const cur: u64 = Storage.has<string>(key) ? parseU64Strict(Storage.get<string>(key)) : 0;
+  assert(cur >= amount, 'insufficient deposit');
+  assert(balance() >= amount, 'contract underfunded');
+  const next: u64 = cur - amount;
+  Storage.set<string>(key, next.toString());
+  transferCoins(new Address(who), amount);
+  generateEvent(`Withdraw|${who}|${amount.toString()}`);
+  return new Args().add<bool>(true).serialize();
 }
 
 // get_plan(plan_id: string) -> string (JSON)

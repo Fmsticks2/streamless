@@ -4,6 +4,7 @@ import Home from './pages/Home'
 import Plans from './pages/Plans'
 import CreatePlan from './pages/CreatePlan'
 import MySubscriptions from './pages/MySubscriptions'
+import Wallet from './pages/Wallet'
 import History from './pages/History'
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
         <Route path="plans" element={<Plans />} />
         <Route path="create" element={<CreatePlan />} />
         <Route path="subs" element={<MySubscriptions />} />
+        <Route path="wallet" element={<Wallet />} />
         <Route path="history" element={<History />} />
       </Route>
     </Routes>
