@@ -7,6 +7,7 @@ import { useStore } from '../store';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { Subscription } from '../types';
+import { cancelSubscriptionOnChain } from '../services/massa';
 
 // Cancel Modal Component
 const CancelModal = ({ 
@@ -137,10 +138,14 @@ export const Subscriptions = () => {
     setIsDetailsModalOpen(true);
   };
 
-  const handleConfirmCancel = () => {
+  const handleConfirmCancel = async () => {
     if (selectedSub) {
+      const ok = await cancelSubscriptionOnChain(selectedSub.id);
+      if (!ok) {
+        toast.error('On-chain cancel failed, updating locally');
+      }
       cancelSubscription(selectedSub.id);
-      toast.success('Subscription cancelled successfully');
+      toast.success('Subscription cancelled');
       setIsCancelModalOpen(false);
       setSelectedSub(null);
     }

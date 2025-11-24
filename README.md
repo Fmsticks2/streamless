@@ -2,19 +2,33 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# Streamless on Massa
 
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/drive/1BU1lpRdo7Fq2MpZMt4hA29rX04er0Peh
+This dApp runs on the Massa network and manages on-chain subscription plans.
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
-
+Prerequisites: Node.js, Bearby or Massa Station wallet
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Configure env in `.env.local`:
+   `GEMINI_API_KEY=your_key`
+   `VITE_MASSA_CONTRACT_ADDRESS=YOUR_DEPLOYED_CONTRACT_ADDRESS`
+3. Start:
    `npm run dev`
+
+## Smart Contract
+
+Source is in `contracts/streamless/Streamless.ts` (AssemblyScript). It exposes `createPlan`, `subscribe`, and `cancel` entry points and stores plan and subscription data in contract storage.
+
+### Build and Deploy
+
+1. Create a Massa smart contract project and copy `contracts/streamless/Streamless.ts` into it.
+2. Install `@massalabs/massa-as-sdk` and compile to Wasm.
+3. Deploy the Wasm to Massa testnet/mainnet using Massa CLI or Bearby.
+4. Set the deployed address in `VITE_MASSA_CONTRACT_ADDRESS`.
+
+## Wallets
+
+The app detects Bearby and Massa Station. On-chain operations are executed via the connected wallet. If no provider is available, actions continue locally for demo purposes.

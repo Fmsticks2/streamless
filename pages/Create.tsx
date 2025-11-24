@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { useStore } from '../store';
 import { useNavigate } from 'react-router-dom';
+import { createPlanOnChain } from '../services/massa';
 
 export const Create = () => {
   const { addPlan, isConnected, connect, address } = useStore();
@@ -32,13 +33,15 @@ export const Create = () => {
     }
 
     setIsSubmitting(true);
-    
-    // Simulate contract interaction
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Add to store
+    const onChainId = await createPlanOnChain({
+      name: formData.name,
+      description: formData.description,
+      amount: parseFloat(formData.amount),
+      token: formData.token,
+      frequency: formData.frequency
+    });
     addPlan({
-        id: `plan_${Date.now()}`,
+        id: onChainId,
         name: formData.name,
         creator: address || 'Unknown',
         amount: parseFloat(formData.amount),
@@ -50,7 +53,7 @@ export const Create = () => {
     });
 
     setIsSubmitting(false);
-    toast.success('Plan created successfully!');
+    toast.success('Plan created on Massa');
     
     // Reset form
     setFormData({

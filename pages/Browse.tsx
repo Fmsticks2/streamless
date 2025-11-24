@@ -6,6 +6,7 @@ import { Search, Filter, User, Clock, CheckCircle } from 'lucide-react';
 import { useStore } from '../store';
 import { Plan } from '../types';
 import toast from 'react-hot-toast';
+import { subscribeOnChain } from '../services/massa';
 
 const PlanCard = ({ plan, onSubscribe }: { plan: Plan, onSubscribe: (plan: Plan) => Promise<void> }) => {
   const [loading, setLoading] = useState(false);
@@ -85,11 +86,9 @@ export const Browse = () => {
         if (!useStore.getState().isConnected) return;
     }
     
-    // Simulate contract transaction delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    subscribeToPlan(plan);
-    toast.success(`Successfully subscribed to ${plan.name}`);
+    const subId = await subscribeOnChain(plan.id);
+    subscribeToPlan({ ...plan, id: plan.id });
+    toast.success(`Subscription created on Massa: ${subId}`);
   };
 
   const handleFilter = () => {
