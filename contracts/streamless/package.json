@@ -1,0 +1,18 @@
+{
+  "name": "streamless-sc",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "prebuild": "node -e \"require('fs').mkdirSync('build',{recursive:true})\"",
+    "build": "asc Streamless.ts -o build/streamless.wasm -t build/streamless.wat -O3 --noAssert",
+    "deploy": "node deploy.mjs"
+  },
+  "devDependencies": {
+    "assemblyscript": "^0.27.0",
+    "@massalabs/massa-as-sdk": "^3.0.0",
+    "@massalabs/as-types": "^2.0.0",
+    "as-bignum": "^0.3.1",
+    "@massalabs/massa-web3": "^1.3.0",
+    "dotenv": "^16.4.5"
+  }
+}

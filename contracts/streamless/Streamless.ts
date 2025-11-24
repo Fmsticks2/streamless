@@ -1,4 +1,5 @@
 import { Storage, Context, generateEvent } from '@massalabs/massa-as-sdk'
+import { bytesToString, stringToBytes } from '@massalabs/as-types'
 
 function now(): u64 {
   return Context.timestamp()
@@ -28,14 +29,14 @@ export function constructor(_: StaticArray<u8>): void {
 }
 
 export function createPlan(bytes: StaticArray<u8>): StaticArray<u8> {
-  const args = String.UTF8.decode(bytes)
+  const args = bytesToString(bytes)
   const parts = args.split('|')
   const name = parts[0]
   const description = parts[1]
   const amount = parts[2]
   const token = parts[3]
   const frequency = parts[4]
-  const creator = Context.caller()
+  const creator = Context.caller().toString()
   const id = 'plan_' + now().toString()
   Storage.set(planKey(id, 'name'), name)
   Storage.set(planKey(id, 'description'), description)
@@ -50,15 +51,15 @@ export function createPlan(bytes: StaticArray<u8>): StaticArray<u8> {
   const updated = existing.length > 0 ? existing + ',' + id : id
   Storage.set(listKey, updated)
   generateEvent('plan_created|' + id)
-  return String.UTF8.encode(id)
+  return stringToBytes(id)
 }
 
 export function subscribe(bytes: StaticArray<u8>): StaticArray<u8> {
-  const planId = String.UTF8.decode(bytes)
+  const planId = bytesToString(bytes)
   const creator = Storage.get(planKey(planId, 'creator'))
   const freq = Storage.get(planKey(planId, 'frequency'))
   const days = parseFrequency(freq)
-  const subId = 'sub_' + now().toString() + '_' + Context.caller()
+  const subId = 'sub_' + now().toString() + '_' + Context.caller().toString()
   Storage.set(subKey(subId, 'planId'), planId)
   Storage.set(subKey(subId, 'planName'), Storage.get(planKey(planId, 'name')))
   Storage.set(subKey(subId, 'creator'), creator)
@@ -70,12 +71,11 @@ export function subscribe(bytes: StaticArray<u8>): StaticArray<u8> {
   const subs = I32.parseInt(subsStr)
   Storage.set(planKey(planId, 'subscribers'), (subs + 1).toString())
   generateEvent('sub_created|' + subId)
-  return String.UTF8.encode(subId)
+  return stringToBytes(subId)
 }
 
 export function cancel(bytes: StaticArray<u8>): void {
-  const subId = String.UTF8.decode(bytes)
+  const subId = bytesToString(bytes)
   Storage.set(subKey(subId, 'status'), 'Cancelled')
   generateEvent('sub_cancelled|' + subId)
 }
-

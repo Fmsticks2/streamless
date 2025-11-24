@@ -1,0 +1,17 @@
+{
+  "targets": {
+    "default": {
+      "binaryFile": "build/streamless.wasm",
+      "textFile": "build/streamless.wat",
+      "optimizeLevel": 3,
+      "noAssert": true
+    }
+  },
+  "options": {
+    "bindings": "raw",
+    "importMemory": false,
+    "exportRuntime": false
+  },
+  "include": ["./**/*.ts"],
+  "files": ["Streamless.ts"]
+}
