@@ -10,7 +10,7 @@ function hasBearby() {
 
 async function call(functionName: string, payload: string) {
   if (!CONTRACT_ADDRESS) throw new Error('Missing VITE_MASSA_CONTRACT_ADDRESS')
-  const wallets = await providers()
+  const wallets = await providers(true, 3000, 200)
   for (const w of wallets) {
     try {
       if ((w as any).connect) {

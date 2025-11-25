@@ -22,25 +22,28 @@ export const Create = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isConnected || !(['massaWallet','massa','metamaskSnap'] as const).includes(walletType as any)) {
-        toast.error("Connect Massa Wallet to create a plan");
-        try {
-          await connect('massaWallet');
-        } catch {}
-        if (!useStore.getState().isConnected || !(['massaWallet','massa','metamaskSnap'] as const).includes(useStore.getState().walletType as any)) {
-          toast.error('Massa wallet not connected');
+    if (!isConnected || walletType !== 'metamask') {
+        await connect('metamask');
+        if (!useStore.getState().isConnected || useStore.getState().walletType !== 'metamask') {
+          toast.error('MetaMask not connected');
           return;
         }
     }
 
     setIsSubmitting(true);
-    const onChainId = await createPlanOnChain({
-      name: formData.name,
-      description: formData.description,
-      amount: parseFloat(formData.amount),
-      token: formData.token,
-      frequency: formData.frequency
-    });
+    let onChainId = '';
+    try {
+      onChainId = await createPlanOnChain({
+        name: formData.name,
+        description: formData.description,
+        amount: parseFloat(formData.amount),
+        token: formData.token,
+        frequency: formData.frequency
+      });
+    } catch (err) {
+      toast.error('On-chain creation requires Massa (MetaMask Snap).');
+      onChainId = `plan_${Date.now()}`;
+    }
     addPlan({
         id: onChainId,
         name: formData.name,
@@ -54,7 +57,7 @@ export const Create = () => {
     });
 
     setIsSubmitting(false);
-    toast.success('Plan created on Massa');
+    toast.success('Plan created');
     
     // Reset form
     setFormData({

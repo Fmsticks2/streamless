@@ -74,16 +74,18 @@ export const Browse = () => {
   }, [searchTerm, plans]);
 
   const handleSubscribe = async (plan: Plan) => {
-    if (!isConnected || !(['massaWallet','massa','metamaskSnap'] as const).includes(walletType as any)) {
-        toast.error("Connect Massa Wallet to subscribe");
-        try {
-            await connect('massaWallet');
-        } catch {}
-        if (!useStore.getState().isConnected || !(['massaWallet','massa','metamaskSnap'] as const).includes(useStore.getState().walletType as any)) return;
+    if (!isConnected || walletType !== 'metamask') {
+      await connect('metamask');
+      if (!useStore.getState().isConnected || useStore.getState().walletType !== 'metamask') return;
     }
-    const subId = await subscribeOnChain(plan.id);
-    subscribeToPlan({ ...plan, id: plan.id });
-    toast.success(`Subscription created on Massa: ${subId}`);
+    try {
+      const subId = await subscribeOnChain(plan.id);
+      subscribeToPlan({ ...plan, id: plan.id });
+      toast.success(`Subscription created: ${subId}`);
+    } catch {
+      subscribeToPlan({ ...plan, id: plan.id });
+      toast.success('Subscription created (off-chain)');
+    }
   };
 
   const handleFilter = () => {

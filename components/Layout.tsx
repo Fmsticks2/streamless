@@ -55,7 +55,7 @@ const Navbar = () => {
   const [isWalletDropdownOpen, setIsWalletDropdownOpen] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
 
-  const handleConnect = async (walletType: 'metamask' | 'massaWallet' | 'bearby' | 'massa' | 'metamaskSnap') => {
+  const handleConnect = async (walletType: 'metamask') => {
     setIsConnecting(true);
     await connect(walletType);
     setIsConnecting(false);
@@ -153,30 +153,7 @@ const Navbar = () => {
                           </div>
                           Connect MetaMask
                         </button>
-                        <button 
-                          onClick={() => {
-                            handleConnect('metamaskSnap');
-                            setIsWalletDropdownOpen(false);
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors mt-1"
-                        >
-                          <div className="p-1.5 bg-white/10 text-white rounded-lg border border-white/10">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" alt="MetaMask Snap" className="w-4 h-4" />
-                          </div>
-                          Connect MetaMask Snap (Massa)
-                        </button>
-                        <button 
-                          onClick={() => {
-                            handleConnect('massaWallet');
-                            setIsWalletDropdownOpen(false);
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors mt-1"
-                        >
-                          <div className="p-1.5 bg-white/10 text-white rounded-lg border border-white/10">
-                            <img src="https://station.massa/logo.svg" alt="Massa Station" className="w-4 h-4" />
-                          </div>
-                          Connect Massa Wallet
-                        </button>
+                        
                       </div>
                     </motion.div>
                   )}
@@ -260,8 +237,8 @@ const Navbar = () => {
             exit={{ height: 0, opacity: 0 }}
             className="md:hidden overflow-hidden bg-[#0a0a0f] border-b border-white/10"
           >
-            <div className="px-4 py-6 space-y-4">
-              {navLinks.map((link) => (
+                  <div className="px-4 py-6 space-y-4">
+                    {navLinks.map((link) => (
                 <NavLink
                   key={link.path}
                   to={link.path}
@@ -275,17 +252,15 @@ const Navbar = () => {
                   {link.name}
                 </NavLink>
               ))}
-              <div className="pt-4 border-t border-white/10">
-                {!isConnected ? (
-                  <div className="space-y-2">
+                  <div className="pt-4 border-t border-white/10">
+                    {!isConnected ? (
+                      <div className="space-y-2">
                     <Button onClick={() => handleConnect('metamask')} className="w-full" variant="white" isLoading={isConnecting}>
                       Connect MetaMask
                     </Button>
-                    <Button onClick={() => handleConnect('massaWallet')} className="w-full" variant="secondary" isLoading={isConnecting}>
-                      Connect Massa Wallet
-                    </Button>
-                  </div>
-                ) : (
+                    
+                      </div>
+                    ) : (
                   <Button onClick={disconnect} variant="danger" className="w-full">
                     Disconnect
                   </Button>
