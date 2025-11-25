@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { createPlanOnChain } from '../services/massa';
 
 export const Create = () => {
-  const { addPlan, isConnected, connect, address } = useStore();
+  const { addPlan, isConnected, connect, address, walletType } = useStore();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
@@ -22,14 +22,15 @@ export const Create = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isConnected) {
-        toast.error("Please connect your wallet to create a plan");
+    if (!isConnected || !(['massaWallet','massa','metamaskSnap'] as const).includes(walletType as any)) {
+        toast.error("Connect Massa Wallet to create a plan");
         try {
-          await connect();
-        } catch {
+          await connect('massaWallet');
+        } catch {}
+        if (!useStore.getState().isConnected || !(['massaWallet','massa','metamaskSnap'] as const).includes(useStore.getState().walletType as any)) {
+          toast.error('Massa wallet not connected');
           return;
         }
-        if (!useStore.getState().isConnected) return;
     }
 
     setIsSubmitting(true);

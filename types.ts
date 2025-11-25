@@ -42,8 +42,9 @@ export interface WalletState {
   isConnected: boolean;
   address: string | null;
   balance: number;
-  connect: () => Promise<void>;
+  connect: (walletType?: 'metamask' | 'massaWallet' | 'bearby' | 'massa' | 'metamaskSnap') => Promise<void>;
   disconnect: () => void;
+  walletType?: 'metamask' | 'massaWallet' | 'massa' | 'metamaskSnap';
 }
 
 export interface CreatorStats {

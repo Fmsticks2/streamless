@@ -63,7 +63,7 @@ const PlanCard = ({ plan, onSubscribe }: { plan: Plan, onSubscribe: (plan: Plan)
 };
 
 export const Browse = () => {
-  const { plans, subscribeToPlan, isConnected, connect } = useStore();
+  const { plans, subscribeToPlan, isConnected, connect, walletType } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredPlans = useMemo(() => {
@@ -74,18 +74,13 @@ export const Browse = () => {
   }, [searchTerm, plans]);
 
   const handleSubscribe = async (plan: Plan) => {
-    if (!isConnected) {
-        toast.error("Please connect your wallet first");
+    if (!isConnected || !(['massaWallet','massa','metamaskSnap'] as const).includes(walletType as any)) {
+        toast.error("Connect Massa Wallet to subscribe");
         try {
-            await connect();
-        } catch {
-            // Error handled in connect()
-            return;
-        }
-        // Check connection status after attempt
-        if (!useStore.getState().isConnected) return;
+            await connect('massaWallet');
+        } catch {}
+        if (!useStore.getState().isConnected || !(['massaWallet','massa','metamaskSnap'] as const).includes(useStore.getState().walletType as any)) return;
     }
-    
     const subId = await subscribeOnChain(plan.id);
     subscribeToPlan({ ...plan, id: plan.id });
     toast.success(`Subscription created on Massa: ${subId}`);

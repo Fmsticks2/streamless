@@ -7,6 +7,7 @@ import { Browse } from './pages/Browse';
 import { Create } from './pages/Create';
 import { Dashboard } from './pages/Dashboard';
 import { Subscriptions } from './pages/Subscriptions';
+import { Test } from './pages/Test';
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
           <Route path="create" element={<Create />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="subscriptions" element={<Subscriptions />} />
+          <Route path="test" element={<Test />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

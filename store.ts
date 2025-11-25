@@ -19,76 +19,65 @@ export const useStore = create<AppState>((set, get) => ({
   isConnected: false,
   address: null,
   balance: 0,
+  walletType: undefined,
   
   // Data State
   plans: MOCK_PLANS,
   subscriptions: MOCK_SUBSCRIPTIONS,
 
-  connect: async () => {
+  connect: async (walletType?: 'metamask' | 'massaWallet' | 'bearby' | 'massa' | 'metamaskSnap') => {
     try {
-      // 1. Try EVM (Rainbow/MetaMask/etc)
-      if ((window as any).ethereum) {
-        try {
-          const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
-          set({ 
-            isConnected: true, 
-            address: accounts[0], 
-            balance: 1450.23 // Mock balance
-          });
-          toast.success('Wallet connected successfully!');
-          return;
-        } catch (err) {
-          console.error("User rejected EVM connection", err);
-          throw err;
-        }
+      if (walletType === 'metamask' || (!walletType && (window as any).ethereum)) {
+        const eth = (window as any).ethereum
+        if (!eth) throw new Error('MetaMask not found')
+        const accounts = await eth.request({ method: 'eth_requestAccounts' })
+        set({ isConnected: true, address: accounts[0], balance: 0, walletType: 'metamask' })
+        toast.success('MetaMask connected')
+        return
       }
-
-      // 2. Try Massa (Bearby)
-      if ((window as any).bearby) {
-        try {
-          await (window as any).bearby.connect();
-          const details = await (window as any).bearby.wallet.account.base58;
-          set({ 
-            isConnected: true, 
-            address: details, 
-            balance: 1450.23 
-          });
-          toast.success('Massa wallet connected!');
-          return;
-        } catch (err) {
-          console.error("Bearby connection failed", err);
+      if (walletType === 'metamaskSnap') {
+        const wp: any = await import('@massalabs/wallet-provider')
+        const wallets = await wp.providers()
+        for (const w of wallets) {
+          const name = await (w as any).name?.()
+          if (name && String(name).toLowerCase().includes('metamask')) {
+            try {
+              if ((w as any).connect) {
+                const ok = await (w as any).connect()
+                if (!ok) continue
+              }
+              const accounts = await w.accounts()
+              const acc = accounts?.[0]
+              const addr = (acc as any)?.address
+              set({ isConnected: true, address: addr || null, balance: 0, walletType: 'metamaskSnap' })
+              toast.success('MetaMask Snap connected')
+              return
+            } catch {}
+          }
         }
+        throw new Error('MetaMask Snap not found')
       }
-
-      // 3. Try Massa Station
-      if ((window as any).massa) {
-        try {
-          const accounts = await (window as any).massa.request({ method: 'massa_requestAccounts' });
-           set({ 
-            isConnected: true, 
-            address: accounts[0], 
-            balance: 1450.23 
-          });
-          toast.success('Massa Station connected!');
-          return;
-        } catch (err) {
-          console.error("Massa Station connection failed", err);
-        }
+      if (walletType === 'massaWallet' || walletType === 'bearby' || (!walletType && (window as any).bearby)) {
+        const b = (window as any).bearby
+        if (!b) throw new Error('Massa Wallet (Bearby) not found')
+        await b.connect()
+        const addr = b.wallet?.account?.base58
+        set({ isConnected: true, address: addr, balance: 0, walletType: 'massaWallet' })
+        toast.success('Massa Wallet connected')
+        return
       }
-
-      // 4. Fallback Mock (for demo purposes if no extension)
-      await delay(800);
-      const mockAddress = '0x71C...9A23'; // Looks like EVM for Rainbow vibe
-      set({
-        isConnected: true,
-        address: mockAddress,
-        balance: 1450.23
-      });
-      toast.success('Mock Wallet Connected');
-      
+      if (walletType === 'massa' || (!walletType && (window as any).massa)) {
+        const m = (window as any).massa
+        if (!m) throw new Error('Massa Station not found')
+        const accounts = await m.request({ method: 'massa_requestAccounts' })
+        set({ isConnected: true, address: accounts[0], balance: 0, walletType: 'massa' })
+        toast.success('Massa Station connected')
+        return
+      }
+      throw new Error('No supported wallet found')
     } catch (error) {
-      console.error("Connection failed", error);
-      toast.error('Failed to connect wallet');
+      console.error('Connection failed', error)
+      toast.error((error as any)?.message || 'Failed to connect wallet')
     }
   },
 
@@ -96,7 +85,8 @@ export const useStore = create<AppState>((set, get) => ({
     set({
       isConnected: false,
       address: null,
-      balance: 0
+      balance: 0,
+      walletType: undefined
     });
     toast.success('Wallet disconnected');
   },
