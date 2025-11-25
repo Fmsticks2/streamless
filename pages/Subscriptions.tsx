@@ -140,9 +140,10 @@ export const Subscriptions = () => {
 
   const handleConfirmCancel = async () => {
     if (selectedSub) {
-      const ok = await cancelSubscriptionOnChain(selectedSub.id);
-      if (!ok) {
-        toast.error('On-chain cancel failed, updating locally');
+      try {
+        await cancelSubscriptionOnChain(selectedSub.id);
+      } catch {
+        toast('Updating locally');
       }
       cancelSubscription(selectedSub.id);
       toast.success('Subscription cancelled');

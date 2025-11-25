@@ -1,14 +1,18 @@
 import { create } from 'zustand';
-import { WalletState, Plan, Subscription, PlanFrequency } from './types';
-import { MOCK_PLANS, MOCK_SUBSCRIPTIONS } from './services/mockData';
+import { WalletState, Plan, Subscription, PlanFrequency, Transaction, CreatorStats } from './types';
+import { MOCK_PLANS, MOCK_SUBSCRIPTIONS, MOCK_TRANSACTIONS, MOCK_CREATOR_STATS } from './services/mockData';
 import toast from 'react-hot-toast';
 
 interface AppState extends WalletState {
   plans: Plan[];
   subscriptions: Subscription[];
+  transactions: Transaction[];
+  creatorStats: CreatorStats;
+  revenueData: { name: string; value: number }[];
   addPlan: (plan: Plan) => void;
   subscribeToPlan: (plan: Plan) => void;
   cancelSubscription: (subId: string) => void;
+  _updateDerived: () => void;
 }
 
 // Mock delay helper
@@ -24,6 +28,46 @@ export const useStore = create<AppState>((set, get) => ({
   // Data State
   plans: MOCK_PLANS,
   subscriptions: MOCK_SUBSCRIPTIONS,
+  transactions: MOCK_TRANSACTIONS,
+  creatorStats: MOCK_CREATOR_STATS,
+  revenueData: (() => {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    const tx = MOCK_TRANSACTIONS
+    const now = new Date()
+    const series: { name: string; value: number }[] = []
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const m = months[d.getMonth()]
+      const y = d.getFullYear()
+      const value = tx.filter(t => t.status === 'Success' && t.date.getMonth() === d.getMonth() && t.date.getFullYear() === y).reduce((a, b) => a + b.amount, 0)
+      series.push({ name: m, value })
+    }
+    return series
+  })(),
+
+  _updateDerived: () => {
+    const state = get()
+    const totalRevenue = state.transactions.filter(t => t.status === 'Success').reduce((a, b) => a + b.amount, 0)
+    const activeSubscribers = state.subscriptions.filter(s => s.status === 'Active').length
+    const activePlans = state.plans.filter(p => p.isActive).length
+    const cancelled = state.subscriptions.filter(s => s.status === 'Cancelled').length
+    const totalSubs = state.subscriptions.length || 1
+    const churnRate = Math.round((cancelled / totalSubs) * 1000) / 10
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    const now = new Date()
+    const series: { name: string; value: number }[] = []
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const m = months[d.getMonth()]
+      const y = d.getFullYear()
+      const value = state.transactions.filter(t => t.status === 'Success' && t.date.getMonth() === d.getMonth() && t.date.getFullYear() === y).reduce((a, b) => a + b.amount, 0)
+      series.push({ name: m, value })
+    }
+    set({
+      creatorStats: { totalRevenue, activeSubscribers, activePlans, churnRate },
+      revenueData: series,
+    })
+  },
 
   connect: async (walletType?: 'metamask', options?: { silent?: boolean }) => {
     try {
@@ -58,6 +102,7 @@ export const useStore = create<AppState>((set, get) => ({
   // Actions
   addPlan: (plan: Plan) => {
     set((state) => ({ plans: [plan, ...state.plans] }));
+    get()._updateDerived()
   },
 
   subscribeToPlan: (plan: Plan) => {
@@ -85,12 +130,22 @@ export const useStore = create<AppState>((set, get) => ({
       status: 'Active'
     };
     
+    const newTx: Transaction = {
+      id: `tx_${Date.now()}`,
+      hash: `op...${Math.random().toString(36).slice(2,8)}`,
+      planName: plan.name,
+      date: new Date(),
+      amount: plan.amount,
+      status: 'Success'
+    }
     set((state) => ({ 
         subscriptions: [newSub, ...state.subscriptions],
         plans: state.plans.map(p => 
             p.id === plan.id ? { ...p, subscribers: p.subscribers + 1 } : p
-        )
+        ),
+        transactions: [newTx, ...state.transactions]
     }));
+    get()._updateDerived()
   },
 
   cancelSubscription: (subId: string) => {
@@ -98,7 +153,7 @@ export const useStore = create<AppState>((set, get) => ({
       subscriptions: state.subscriptions.map(sub => 
         sub.id === subId ? { ...sub, status: 'Cancelled' } : sub
       ),
-      // Optionally decrement subscriber count if we were tracking it strictly per plan in a real app
     }));
+    get()._updateDerived()
   }
 }));

@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { GlassCard } from '../components/ui/GlassCard';
-import { MOCK_CREATOR_STATS, REVENUE_DATA, MOCK_SUBSCRIPTIONS } from '../services/mockData';
+import { useStore } from '../store';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp, Users, Box, CreditCard } from 'lucide-react';
 
@@ -25,6 +25,21 @@ const StatBox = ({ label, value, icon, change }: any) => (
 );
 
 export const Dashboard = () => {
+  const { creatorStats, transactions, subscriptions } = useStore();
+  const chartData = useMemo(() => {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    const now = new Date()
+    const monthly: { name: string; monthly: number }[] = []
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const m = months[d.getMonth()]
+      const y = d.getFullYear()
+      const value = transactions.filter(t => t.status === 'Success' && t.date.getMonth() === d.getMonth() && t.date.getFullYear() === y).reduce((a, b) => a + b.amount, 0)
+      monthly.push({ name: m, monthly: value })
+    }
+    let cum = 0
+    return monthly.map(pt => { cum += pt.monthly; return { name: pt.name, monthly: pt.monthly, cumulative: cum } })
+  }, [transactions])
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold font-display mb-8">Creator Dashboard</h1>
@@ -33,24 +48,24 @@ export const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatBox 
           label="Total Revenue" 
-          value={`$${MOCK_CREATOR_STATS.totalRevenue}`} 
+          value={`$${creatorStats.totalRevenue}`} 
           icon={<CreditCard size={20} />} 
           change={12}
         />
         <StatBox 
           label="Active Subscribers" 
-          value={MOCK_CREATOR_STATS.activeSubscribers} 
+          value={creatorStats.activeSubscribers} 
           icon={<Users size={20} />} 
           change={5.4}
         />
         <StatBox 
           label="Active Plans" 
-          value={MOCK_CREATOR_STATS.activePlans} 
+          value={creatorStats.activePlans} 
           icon={<Box size={20} />} 
         />
         <StatBox 
           label="Avg Churn Rate" 
-          value={`${MOCK_CREATOR_STATS.churnRate}%`} 
+          value={`${creatorStats.churnRate}%`} 
           icon={<TrendingUp size={20} className="rotate-180 text-red-400" />} 
         />
       </div>
@@ -61,10 +76,14 @@ export const Dashboard = () => {
           <GlassCard className="p-6 h-[400px]">
             <h3 className="text-lg font-bold mb-6">Revenue Overview</h3>
             <ResponsiveContainer width="100%" height="85%">
-              <AreaChart data={REVENUE_DATA}>
+              <AreaChart data={chartData}>
                 <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ffffff" stopOpacity={0.3}/>
+                  <linearGradient id="colorMonthly" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.35}/>
+                    <stop offset="95%" stopColor="#60a5fa" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorCumulative" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ffffff" stopOpacity={0.25}/>
                     <stop offset="95%" stopColor="#ffffff" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
@@ -95,11 +114,19 @@ export const Dashboard = () => {
                 />
                 <Area 
                   type="monotone" 
-                  dataKey="value" 
+                  dataKey="monthly" 
+                  stroke="#60a5fa" 
+                  strokeWidth={2}
+                  fillOpacity={1} 
+                  fill="url(#colorMonthly)" 
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="cumulative" 
                   stroke="#ffffff" 
                   strokeWidth={3}
                   fillOpacity={1} 
-                  fill="url(#colorRevenue)" 
+                  fill="url(#colorCumulative)" 
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -111,21 +138,20 @@ export const Dashboard = () => {
           <GlassCard className="p-6 h-[400px] overflow-hidden flex flex-col">
             <h3 className="text-lg font-bold mb-4">Recent Subscribers</h3>
             <div className="flex-1 overflow-y-auto pr-2 space-y-4">
-               {/* Mocking recent sub list from existing data */}
-               {[1,2,3,4,5].map((_, i) => (
-                 <div key={i} className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-                   <div className="flex items-center gap-3">
-                     <div className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-xs font-bold text-white">
-                       AU
-                     </div>
-                     <div>
-                       <p className="text-sm font-medium text-white">AU1z...9k2p</p>
-                       <p className="text-xs text-gray-500">Subscribed to Plan #{i + 1}</p>
-                     </div>
-                   </div>
-                   <span className="text-green-400 text-xs font-bold">+50 MASS</span>
-                 </div>
-               ))}
+              {subscriptions.slice(0, 10).map((s, i) => (
+                <div key={s.id} className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-xs font-bold text-white">
+                      {String(s.creator).slice(0,2)}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">{s.creator}</p>
+                      <p className="text-xs text-gray-500">Subscribed to {s.planName}</p>
+                    </div>
+                  </div>
+                  <span className="text-green-400 text-xs font-bold">+{s.planName ? (useStore.getState().plans.find(p => p.id === s.planId)?.amount || 0) : 0} MASS</span>
+                </div>
+              ))}
             </div>
           </GlassCard>
         </div>
